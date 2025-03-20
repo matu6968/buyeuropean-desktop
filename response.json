@@ -1,0 +1,23 @@
+{
+    "id": 5431,
+    "thinking": "The product in the image is a can of Sprite, which is a lemon-lime flavored soft drink. Sprite is owned by The Coca-Cola Company, which is an American corporation headquartered in Atlanta, Georgia. Despite the packaging being in Polish, the company’s headquarters location determines its classification.",
+    "identified_product_name": "Sprite",
+    "identified_company": "The Coca-Cola Company",
+    "identified_headquarters": "United States",
+    "identification_rationale": "Sprite is owned by The Coca-Cola Company, an American corporation, regardless of its international packaging and labeling languages.",
+    "raw_country": "United States",
+    "classification": "european_sceptic",
+    "potential_alternative_thinking": "Looking for European alternatives to Sprite requires identifying European soft drink brands with similar citrus flavors. Schweppes, based in Europe, offers a similar lemon-flavored carbonated drink and is widely available across Europe, including Poland.",
+    "potential_alternative": "Schweppes Lemonade by Schweppes, headquartered in Switzerland, is a similar European alternative to Sprite.",
+    "potential_alternatives": [
+        {
+            "product_name": "Schweppes Lemonade",
+            "company": "Schweppes",
+            "description": "Schweppes Lemonade is a lemon-flavored soft drink similar to Sprite. Schweppes is headquartered in Switzerland and has a strong presence in Europe.",
+            "country": "Switzerland"
+        }
+    ],
+    "input_tokens": 1018,
+    "output_tokens": 271,
+    "total_tokens": 1289
+}
