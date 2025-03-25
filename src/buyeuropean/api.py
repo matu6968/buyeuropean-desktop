@@ -5,12 +5,13 @@ import json
 import requests
 import platform
 import io
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List, Union, Literal
 from pathlib import Path
 from PIL import Image
 
 VERSION = "1.0.0"
 API_ENDPOINT = "https://buy-e-ubackend-felixgraeber.replit.app/analyze-product"
+FEEDBACK_ENDPOINT = "https://buy-e-ubackend-felixgraeber.replit.app/api/feedback/analysis"
 
 class BuyEuropeanAPI:
     """Client for the BuyEuropean API."""
@@ -35,6 +36,9 @@ class BuyEuropeanAPI:
             'sec-fetch-site': 'cross-site',
             'user-agent': user_agent
         }
+        
+        # Store the most recent analysis ID for feedback
+        self.last_analysis_id = None
     
     def _get_browser_headers(self) -> Tuple[str, Dict[str, str]]:
         """Get a custom user agent string and corresponding sec-ch headers.
@@ -151,12 +155,26 @@ class BuyEuropeanAPI:
             if response.status_code == 200:
                 result = response.json()
                 
+                # Store the analysis ID for potential feedback
+                if "id" in result:
+                    self.last_analysis_id = result["id"]
+                
                 # Map classification values if needed for compatibility
                 # The API uses values like 'european_sceptic', 'european_country', 'european_ally'
                 classification = result.get("classification")
                 if classification == "european":
                     # Handle older API responses that might use 'european'
                     result["classification"] = "european_country"
+                    
+                # Normalize alternative names to lowercase to handle inconsistent API responses
+                if "alternatives" in result and result["alternatives"]:
+                    normalized_alternatives = []
+                    for alt in result["alternatives"]:
+                        if "name" in alt and alt["name"]:
+                            # Ensure first letter is capitalized for display
+                            alt["name"] = alt["name"].capitalize()
+                        normalized_alternatives.append(alt)
+                    result["alternatives"] = normalized_alternatives
                 
                 return result
             else:
@@ -165,4 +183,60 @@ class BuyEuropeanAPI:
                 
         except Exception as e:
             print(f"Error analyzing product: {e}")
-            return None 
+            return None
+    
+    def send_feedback(self, 
+                     is_positive: bool,
+                     wrong_product: bool = False,
+                     wrong_brand: bool = False,
+                     wrong_country: bool = False,
+                     wrong_classification: bool = False,
+                     wrong_alternatives: bool = False,
+                     wrong_other: bool = False,
+                     feedback_text: str = "") -> Dict[str, Any]:
+        """Send feedback about an analysis to the API.
+        
+        Args:
+            is_positive: True if feedback is positive (thumbs up), False if negative (thumbs down)
+            wrong_product: True if product identification was incorrect
+            wrong_brand: True if brand identification was incorrect
+            wrong_country: True if country identification was incorrect
+            wrong_classification: True if classification was incorrect
+            wrong_alternatives: True if suggested alternatives were incorrect
+            wrong_other: True if there was another issue
+            feedback_text: Additional text feedback
+            
+        Returns:
+            API response as a dictionary
+        """
+        if not self.last_analysis_id:
+            return {"status": "error", "message": "No analysis ID available for feedback"}
+        
+        payload = {
+            "analysis_id": self.last_analysis_id,
+            "is_positive": is_positive,
+            "wrong_product": wrong_product,
+            "wrong_brand": wrong_brand,
+            "wrong_country": wrong_country,
+            "wrong_classification": wrong_classification,
+            "wrong_alternatives": wrong_alternatives,
+            "wrong_other": wrong_other,
+            "feedback_text": feedback_text
+        }
+        
+        try:
+            response = requests.post(
+                FEEDBACK_ENDPOINT,
+                headers=self.headers,
+                data=json.dumps(payload)
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"Feedback API error: {response.status_code}, {response.text}")
+                return {"status": "error", "message": f"API error: {response.status_code}"}
+                
+        except Exception as e:
+            print(f"Error sending feedback: {e}")
+            return {"status": "error", "message": str(e)} 

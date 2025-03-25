@@ -47,6 +47,9 @@ class GtkApp:
         
         if HAS_GST:
             self.setup_sound_players()
+        
+        # Store analysis result
+        self.current_result = None
     
     def setup_sound_players(self):
         """Set up GStreamer sound players for better audio handling."""
@@ -69,6 +72,9 @@ class GtkApp:
         # Create the main window as an Adw.ApplicationWindow
         self.window = Adw.ApplicationWindow(application=app, title="BuyEuropean")
         self.window.set_default_size(800, 600)
+        
+        # Create a toast overlay for notifications
+        self.toast_overlay = Adw.ToastOverlay()
         
         # Create a header bar with modern GNOME style
         self.header_bar = Adw.HeaderBar()
@@ -288,8 +294,11 @@ class GtkApp:
         scrolled_window.set_child(content_box)
         main_box.append(scrolled_window)
         
-        # Set the window content
-        self.window.set_content(main_box)
+        # Set the toast overlay as the content of the window and add the main box to it
+        self.toast_overlay.set_child(main_box)
+        self.window.set_content(self.toast_overlay)
+        
+        # Show the window
         self.window.present()
         
         # Store the selected image path
@@ -376,6 +385,9 @@ class GtkApp:
         if not result:
             self.show_error("Failed to analyze product. Please try again.")
             return
+            
+        # Store the current result for use in feedback
+        self.current_result = result
             
         # Update the main result label
         product_name = result.get("identified_product_name", "Unknown product")
@@ -515,7 +527,36 @@ class GtkApp:
         disclaimer.set_margin_bottom(12)
         disclaimer.set_margin_start(44)
         disclaimer.set_margin_end(44)
-        self.results_card.add(disclaimer) 
+        self.results_card.add(disclaimer)
+
+        # Add a feedback button
+        feedback_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        feedback_box.set_halign(Gtk.Align.CENTER)
+        feedback_box.set_margin_top(12)
+        feedback_box.set_margin_bottom(12)
+        
+        # Thumbs up button
+        thumbs_up_button = Gtk.Button()
+        thumbs_up_button.set_icon_name("emblem-ok-symbolic")
+        thumbs_up_button.set_tooltip_text("This analysis is correct")
+        thumbs_up_button.add_css_class("suggested-action")
+        thumbs_up_button.connect("clicked", self.on_thumbs_up_clicked)
+        feedback_box.append(thumbs_up_button)
+        
+        # Add a small space
+        spacing = Gtk.Box()
+        spacing.set_size_request(10, -1)
+        feedback_box.append(spacing)
+        
+        # Thumbs down button
+        thumbs_down_button = Gtk.Button()
+        thumbs_down_button.set_icon_name("dialog-warning-symbolic")
+        thumbs_down_button.set_tooltip_text("This analysis has issues")
+        thumbs_down_button.add_css_class("destructive-action")
+        thumbs_down_button.connect("clicked", self.on_thumbs_down_clicked)
+        feedback_box.append(thumbs_down_button)
+        
+        self.results_card.add(feedback_box)
 
         # Restore the analyze button
         analyze_button_content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -669,6 +710,108 @@ class GtkApp:
         
         # If no match found, return the EU flag as default
         return "🇪🇺"
+    
+    def on_thumbs_up_clicked(self, button):
+        """Handle thumbs up button click - send positive feedback."""
+        if not self.current_result or not self.current_result.get("id"):
+            return
+            
+        # Send positive feedback
+        response = self.api.send_feedback(is_positive=True)
+        
+        if response.get("status") == "success":
+            # Show a success toast message
+            toast = Adw.Toast.new("Thanks for your feedback!")
+            self.toast_overlay.add_toast(toast)
+    
+    def on_thumbs_down_clicked(self, button):
+        """Handle thumbs down button click - show feedback dialog."""
+        if not self.current_result or not self.current_result.get("id"):
+            return
+            
+        # Create a dialog for feedback
+        dialog = Adw.MessageDialog.new(self.window, "What was incorrect?", None)
+        
+        # Add the feedback options
+        content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content_box.set_margin_top(12)
+        content_box.set_margin_bottom(12)
+        content_box.set_margin_start(12)
+        content_box.set_margin_end(12)
+        
+        # Add checkboxes for different issues
+        self.product_check = Gtk.CheckButton.new_with_label("Product identification")
+        content_box.append(self.product_check)
+        
+        self.brand_check = Gtk.CheckButton.new_with_label("Brand identification")
+        content_box.append(self.brand_check)
+        
+        self.country_check = Gtk.CheckButton.new_with_label("Country identification")
+        content_box.append(self.country_check)
+        
+        self.classification_check = Gtk.CheckButton.new_with_label("Classification")
+        content_box.append(self.classification_check)
+        
+        self.alternatives_check = Gtk.CheckButton.new_with_label("Suggested alternatives")
+        content_box.append(self.alternatives_check)
+        
+        self.other_check = Gtk.CheckButton.new_with_label("Other")
+        content_box.append(self.other_check)
+        
+        # Add a text entry for additional comments
+        comments_label = Gtk.Label(label="Any additional comments?")
+        comments_label.set_halign(Gtk.Align.START)
+        comments_label.set_margin_top(12)
+        content_box.append(comments_label)
+        
+        self.feedback_text = Gtk.TextView()
+        self.feedback_text.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.feedback_text.set_size_request(-1, 100)
+        
+        # Create a scrollable text entry
+        scrolled_window = Gtk.ScrolledWindow()
+        scrolled_window.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled_window.set_child(self.feedback_text)
+        content_box.append(scrolled_window)
+        
+        dialog.set_extra_child(content_box)
+        
+        # Add buttons
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("submit", "Submit")
+        dialog.set_response_appearance("submit", Adw.ResponseAppearance.SUGGESTED)
+        
+        # Connect response signal
+        dialog.connect("response", self.on_feedback_dialog_response)
+        
+        # Show the dialog
+        dialog.present()
+    
+    def on_feedback_dialog_response(self, dialog, response):
+        """Handle feedback dialog response."""
+        if response == "submit":
+            # Get the feedback text from buffer
+            buffer = self.feedback_text.get_buffer()
+            start_iter = buffer.get_start_iter()
+            end_iter = buffer.get_end_iter()
+            feedback_text = buffer.get_text(start_iter, end_iter, False)
+            
+            # Send the feedback
+            response = self.api.send_feedback(
+                is_positive=False,
+                wrong_product=self.product_check.get_active(),
+                wrong_brand=self.brand_check.get_active(),
+                wrong_country=self.country_check.get_active(),
+                wrong_classification=self.classification_check.get_active(),
+                wrong_alternatives=self.alternatives_check.get_active(),
+                wrong_other=self.other_check.get_active(),
+                feedback_text=feedback_text
+            )
+            
+            if response.get("status") == "success":
+                # Show a success toast message
+                toast = Adw.Toast.new("Thanks for your feedback!")
+                self.toast_overlay.add_toast(toast)
     
     def run(self):
         """Run the application."""

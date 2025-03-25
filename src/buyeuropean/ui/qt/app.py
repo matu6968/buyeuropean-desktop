@@ -7,7 +7,8 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, 
-    QWidget, QFileDialog, QScrollArea, QTextEdit, QFrame, QSizePolicy
+    QWidget, QFileDialog, QScrollArea, QTextEdit, QFrame, QSizePolicy,
+    QDialog, QCheckBox, QMessageBox, QDialogButtonBox
 )
 from PyQt6.QtGui import QPixmap, QFont, QColor, QPalette
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, QObject, QThread, QUrl
@@ -59,6 +60,51 @@ ERROR_SOUND_WAV = SOUND_DIR / "error.wav"
 # Define logo path
 LOGO_PATH = Path(__file__).parent.parent / "qt" / "logos" / "logo_buyeuropean.png"
 
+# Feedback dialog class
+class FeedbackDialog(QDialog):
+    """Dialog for collecting user feedback on analysis results."""
+    
+    def __init__(self, parent=None):
+        """Initialize the feedback dialog."""
+        super().__init__(parent)
+        self.setWindowTitle("What was incorrect?")
+        self.setMinimumWidth(400)
+        
+        # Create the layout
+        layout = QVBoxLayout(self)
+        
+        # Add checkboxes for different issues
+        self.product_check = QCheckBox("Product identification")
+        layout.addWidget(self.product_check)
+        
+        self.brand_check = QCheckBox("Brand identification")
+        layout.addWidget(self.brand_check)
+        
+        self.country_check = QCheckBox("Country identification")
+        layout.addWidget(self.country_check)
+        
+        self.classification_check = QCheckBox("Classification")
+        layout.addWidget(self.classification_check)
+        
+        self.alternatives_check = QCheckBox("Suggested alternatives")
+        layout.addWidget(self.alternatives_check)
+        
+        self.other_check = QCheckBox("Other")
+        layout.addWidget(self.other_check)
+        
+        # Add a text edit for comments
+        layout.addWidget(QLabel("Any additional comments?"))
+        
+        self.comments_edit = QTextEdit()
+        self.comments_edit.setMinimumHeight(100)
+        layout.addWidget(self.comments_edit)
+        
+        # Add buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
 class WorkerSignals(QObject):
     """Worker signals for threaded operations."""
     finished = pyqtSignal(object)
@@ -100,6 +146,9 @@ class QtApp:
         
         # Initialize sound effects with multi-format support
         self.setup_sound_effects()
+        
+        # Store the current analysis result
+        self.current_result = None
         
     def setup_dark_palette(self):
         """Set up a dark color palette for the application."""
@@ -490,6 +539,9 @@ class QtApp:
             self.show_error("Failed to analyze product. Please try again.")
             return
             
+        # Store the current result for feedback
+        self.current_result = result
+            
         # Show the results frame
         self.results_frame.setVisible(True)
             
@@ -570,95 +622,63 @@ class QtApp:
             
         if has_debug:
             detailed_text += debug_text + "\n"
-        
-        # Update the text area
+            
+        # Update the details view
         self.details_view.setText(detailed_text)
         
-        # Add potential alternatives if available
-        alternatives = result.get("potential_alternatives", [])
+        # Handle alternatives
+        alternatives = result.get("alternatives", [])
         if alternatives:
-            # Show alternatives section
+            self.clear_alt_buttons()
             self.alternatives_label.setVisible(True)
             self.alternatives_widget.setVisible(True)
             
-            # Clear any previous alternative buttons
-            self.clear_alt_buttons()
-            
             for alt in alternatives:
-                alt_name = alt.get('product_name', 'N/A')
-                alt_company = alt.get('company', 'N/A')
-                alt_country = alt.get('country', 'N/A')
-                alt_description = alt.get('description', '')
+                # Make sure we have a name for the alternative
+                if not alt.get("name"):
+                    continue
+                    
+                alt_name = alt.get("name", "Unknown")
+                alt_country = alt.get("country", "")
                 
-                # Create a frame for each alternative
-                alt_frame = QFrame()
-                alt_frame.setFrameShape(QFrame.StyledPanel)
-                alt_frame.setStyleSheet("""
-                    QFrame { 
-                        background-color: #333; 
-                        border-radius: 4px;
-                        padding: 4px;
-                        margin: 4px;
-                    }
-                """)
+                # Create a button layout
+                alt_button = QPushButton(f"{alt_name}")
                 
-                alt_layout = QVBoxLayout(alt_frame)
-                alt_layout.setContentsMargins(8, 8, 8, 8)
-                
-                # Add header with country emoji
-                header_layout = QHBoxLayout()
-                
-                # Get country emoji
-                country_emoji = self.get_country_flag_emoji(alt_country)
-                emoji_label = QLabel(country_emoji)
-                emoji_label.setStyleSheet("font-size: 18px; margin-right: 6px;")
-                header_layout.addWidget(emoji_label)
-                
-                # Add product name and company
-                product_label = QLabel(f"<b>{alt_name}</b> by {alt_company}")
-                product_label.setStyleSheet("color: white;")
-                header_layout.addWidget(product_label)
-                header_layout.addStretch()
-                
-                alt_layout.addLayout(header_layout)
-                
-                # Add description if available
-                if alt_description:
-                    desc_label = QLabel(alt_description)
-                    desc_label.setWordWrap(True)
-                    desc_label.setStyleSheet("color: #ccc; margin-top: 4px;")
-                    alt_layout.addWidget(desc_label)
-                
-                # Add learn more button
-                learn_button = QPushButton("Learn More")
-                learn_button.setStyleSheet("""
+                if alt_country:
+                    # Add country flag emoji if available
+                    country_code = alt.get("country_code", "")
+                    country_flag = self.get_country_flag_emoji(alt_country, country_code)
+                    alt_button.setText(f"{country_flag} {alt_name}")
+                    if "by" in alt.get("information", ""):
+                        alt_button.setToolTip(alt.get("information", ""))
+                        
+                # Style the button
+                alt_button.setStyleSheet("""
                     QPushButton {
-                        background-color: #2a5a8c;
+                        background-color: #3174ad;
                         color: white;
-                        border: none;
-                        padding: 6px 12px;
-                        border-radius: 3px;
-                        margin-top: 6px;
+                        border: 1px solid #2c6ca0;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        text-align: left;
                     }
                     QPushButton:hover {
-                        background-color: #336699;
+                        background-color: #3c87c7;
                     }
                 """)
-                learn_button.clicked.connect(
-                    lambda checked=False, name=alt_name, company=alt_company: 
-                    self.open_search(f"{name} {company}")
-                )
                 
-                alt_layout.addWidget(learn_button)
-                self.alternatives_layout.addWidget(alt_frame)
+                # Connect the button to a search function
+                alt_button.clicked.connect(lambda _, name=alt_name: self.search_alternative(name))
+                
+                # Add to layout
+                self.alternatives_layout.addWidget(alt_button)
         else:
-            # Hide the alternatives section if no alternatives
             self.alternatives_label.setVisible(False)
             self.alternatives_widget.setVisible(False)
         
-        # Re-enable the analyze button
-        self.analyze_button.setEnabled(True)
+        # Reset analyze button
         self.analyze_button.setText("Analyze Product")
+        self.analyze_button.setEnabled(True)
         self.analyze_button.setStyleSheet("""
             QPushButton {
                 background-color: #3174ad;
@@ -674,121 +694,169 @@ class QtApp:
                 background-color: #296090;
             }
         """)
+        
+        # Add feedback buttons
+        self.add_feedback_buttons()
     
-    def get_country_flag_emoji(self, country_name):
-        """Convert a country name to its flag emoji or formatted text."""
-        # Map of common European countries to their flag emojis
-        country_map = {
-            "Austria": "🇦🇹",
-            "Belgium": "🇧🇪",
-            "Bulgaria": "🇧🇬",
-            "Croatia": "🇭🇷",
-            "Cyprus": "🇨🇾",
-            "Czech Republic": "🇨🇿",
-            "Denmark": "🇩🇰",
-            "Estonia": "🇪🇪",
-            "Finland": "🇫🇮",
-            "France": "🇫🇷",
-            "Germany": "🇩🇪",
-            "Greece": "🇬🇷",
-            "Hungary": "🇭🇺",
-            "Ireland": "🇮🇪",
-            "Italy": "🇮🇹",
-            "Latvia": "🇱🇻",
-            "Lithuania": "🇱🇹",
-            "Luxembourg": "🇱🇺",
-            "Malta": "🇲🇹",
-            "Netherlands": "🇳🇱",
-            "Poland": "🇵🇱",
-            "Portugal": "🇵🇹",
-            "Romania": "🇷🇴",
-            "Slovakia": "🇸🇰",
-            "Slovenia": "🇸🇮",
-            "Spain": "🇪🇸",
-            "Sweden": "🇸🇪",
-            "United Kingdom": "🇬🇧",
-            "Switzerland": "🇨🇭",
-            "Norway": "🇳🇴",
-            "Iceland": "🇮🇸",
-            "Liechtenstein": "🇱🇮",
-            "United States": "🇺🇸",
-            "China": "🇨🇳",
-            "Japan": "🇯🇵",
-            "South Korea": "🇰🇷",
-            "Russia": "🇷🇺",
-            "India": "🇮🇳",
-            "Brazil": "🇧🇷",
-            "Canada": "🇨🇦",
-            "Australia": "🇦🇺",
-            "New Zealand": "🇳🇿",
-        }
+    def add_feedback_buttons(self):
+        """Add feedback buttons to the results layout."""
+        # If feedback buttons already exist, remove them first
+        if hasattr(self, 'feedback_widget'):
+            self.main_layout.removeWidget(self.feedback_widget)
+            self.feedback_widget.deleteLater()
+            
+        # Create container for feedback buttons
+        self.feedback_widget = QWidget()
+        feedback_layout = QHBoxLayout(self.feedback_widget)
         
-        # Two-letter country codes for backup text representation
-        country_codes = {
-            "Austria": "AT",
-            "Belgium": "BE",
-            "Bulgaria": "BG",
-            "Croatia": "HR",
-            "Cyprus": "CY",
-            "Czech Republic": "CZ",
-            "Denmark": "DK",
-            "Estonia": "EE",
-            "Finland": "FI",
-            "France": "FR",
-            "Germany": "DE",
-            "Greece": "GR",
-            "Hungary": "HU",
-            "Ireland": "IE",
-            "Italy": "IT",
-            "Latvia": "LV",
-            "Lithuania": "LT",
-            "Luxembourg": "LU",
-            "Malta": "MT",
-            "Netherlands": "NL",
-            "Poland": "PL",
-            "Portugal": "PT",
-            "Romania": "RO",
-            "Slovakia": "SK",
-            "Slovenia": "SI",
-            "Spain": "ES",
-            "Sweden": "SE",
-            "United Kingdom": "GB",
-            "Switzerland": "CH",
-            "Norway": "NO",
-            "Iceland": "IS",
-            "Liechtenstein": "LI",
-            "United States": "US",
-            "China": "CN",
-            "Japan": "JP",
-            "South Korea": "KR",
-            "Russia": "RU",
-            "India": "IN",
-            "Brazil": "BR",
-            "Canada": "CA",
-            "Australia": "AU",
-            "New Zealand": "NZ",
-        }
+        # Add feedback label
+        feedback_label = QLabel("Was this analysis helpful?")
+        feedback_layout.addWidget(feedback_label)
         
-        # Try to match the country name exactly
-        if country_name in country_map:
-            emoji = country_map[country_name]
-            code = country_codes.get(country_name, "EU")
-            return f"{emoji} {code}"
+        # Add thumbs up button
+        thumbs_up_button = QPushButton("👍 Yes")
+        thumbs_up_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        thumbs_up_button.clicked.connect(self.on_thumbs_up_clicked)
+        feedback_layout.addWidget(thumbs_up_button)
         
-        # Check for partial matches
-        for known_country, emoji in country_map.items():
-            if known_country in country_name or country_name in known_country:
-                code = country_codes.get(known_country, "EU")
-                return f"{emoji} {code}"
+        # Add thumbs down button
+        thumbs_down_button = QPushButton("👎 No")
+        thumbs_down_button.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+            }
+        """)
+        thumbs_down_button.clicked.connect(self.on_thumbs_down_clicked)
+        feedback_layout.addWidget(thumbs_down_button)
         
-        # If no match found, return the EU flag as default
-        return "🇪🇺 EU"
+        # Add spacer to right-align buttons
+        feedback_layout.addStretch()
         
-    def open_search(self, search_term):
-        """Open a web browser with a search for the given term."""
+        # Add to main layout
+        self.main_layout.addWidget(self.feedback_widget)
+    
+    def on_thumbs_up_clicked(self):
+        """Handle thumbs up button click - positive feedback."""
+        if not self.current_result or "id" not in self.current_result:
+            return
+            
+        # Send positive feedback
+        response = self.api.send_feedback(is_positive=True)
+        
+        if response.get("status") == "success":
+            QMessageBox.information(self.window, "Feedback Sent", "Thanks for your feedback!")
+    
+    def on_thumbs_down_clicked(self):
+        """Handle thumbs down button click - show feedback dialog."""
+        if not self.current_result or "id" not in self.current_result:
+            return
+            
+        # Create and show feedback dialog
+        dialog = FeedbackDialog(self.window)
+        result = dialog.exec()
+        
+        if result == QDialog.DialogCode.Accepted:
+            # Get feedback data
+            feedback_text = dialog.comments_edit.toPlainText()
+            
+            # Send the feedback
+            response = self.api.send_feedback(
+                is_positive=False,
+                wrong_product=dialog.product_check.isChecked(),
+                wrong_brand=dialog.brand_check.isChecked(),
+                wrong_country=dialog.country_check.isChecked(),
+                wrong_classification=dialog.classification_check.isChecked(),
+                wrong_alternatives=dialog.alternatives_check.isChecked(),
+                wrong_other=dialog.other_check.isChecked(),
+                feedback_text=feedback_text
+            )
+            
+            if response.get("status") == "success":
+                QMessageBox.information(self.window, "Feedback Sent", "Thanks for your feedback!")
+            else:
+                QMessageBox.warning(self.window, "Error", f"Failed to send feedback: {response.get('message', 'Unknown error')}")
+    
+    def search_alternative(self, name):
+        """Search for an alternative product."""
         import webbrowser
-        search_url = f"https://www.google.com/search?q={search_term.replace(' ', '+')}"
+        search_url = f"https://www.google.com/search?q={name.replace(' ', '+')}"
         webbrowser.open(search_url)
+    
+    def get_country_flag_emoji(self, country_name, country_code=""):
+        """Get flag emoji for a country name."""
+        if not country_name:
+            return "🇪🇺"
+            
+        # Use country code if provided (usually more reliable)
+        if country_code and len(country_code) == 2:
+            # Convert country code to regional indicator symbols
+            code = country_code.upper()
+            return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397) + " " + code
+            
+        # Common European countries (for more reliable mapping)
+        country_map = {
+            "germany": "🇩🇪 DE",
+            "france": "🇫🇷 FR",
+            "italy": "🇮🇹 IT",
+            "spain": "🇪🇸 ES",
+            "austria": "🇦🇹 AT", 
+            "netherlands": "🇳🇱 NL",
+            "belgium": "🇧🇪 BE",
+            "sweden": "🇸🇪 SE",
+            "switzerland": "🇨🇭 CH",
+            "united kingdom": "🇬🇧 GB",
+            "uk": "🇬🇧 GB",
+            "usa": "🇺🇸 US",
+            "united states": "🇺🇸 US",
+            "poland": "🇵🇱 PL",
+            "finland": "🇫🇮 FI",
+            "denmark": "🇩🇰 DK",
+            "greece": "🇬🇷 GR",
+            "czech republic": "🇨�� CZ",
+            "czechia": "🇨🇿 CZ",
+            "portugal": "🇵🇹 PT",
+            "ireland": "🇮🇪 IE",
+            "hungary": "🇭🇺 HU",
+            "japan": "🇯🇵 JP",
+            "china": "🇨🇳 CN",
+            "canada": "🇨🇦 CA",
+            "australia": "🇦🇺 AU",
+            "taiwan": "🇹🇼 TW",
+            "south korea": "🇰🇷 KR",
+            "korea": "🇰🇷 KR",
+            "india": "🇮🇳 IN",
+            "russia": "🇷🇺 RU",
+            "brazil": "🇧🇷 BR",
+            "mexico": "🇲🇽 MX",
+            "norway": "🇳🇴 NO",
+            "pakistan": "🇵🇰 PK",
+        }
+        
+        # Try to match the country name
+        country_lower = country_name.lower()
+        if country_lower in country_map:
+            return country_map[country_lower]
+            
+        # Fallback to European flag if not found
+        return "🇪🇺 EU"
     
     def clear_alt_buttons(self):
         """Clear alternative buttons from the UI."""
