@@ -481,8 +481,9 @@ class GtkApp:
         # Update the text buffer
         self.details_buffer.set_text(detailed_text)
         
-        # Add potential alternatives if available and create buttons
-        alternatives = result.get("potential_alternatives", [])
+        # Check both potential_alternatives (original format) and alternatives (new format)
+        alternatives = result.get("alternatives", result.get("potential_alternatives", []))
+        
         if alternatives:
             self.clear_alt_buttons()
             
@@ -490,16 +491,44 @@ class GtkApp:
             self.alt_buttons_group.set_visible(True)
             
             for alt in alternatives:
-                alt_name = alt.get('product_name', 'N/A')
-                alt_company = alt.get('company', 'N/A')
-                alt_country = alt.get('country', 'N/A')
+                # Handle both new and old format
+                if "name" in alt:
+                    # New format
+                    alt_name = alt.get("name", "Unknown")
+                    alt_company = alt.get("by", "").replace("by ", "")
+                    if not alt_company and "information" in alt:
+                        # Try to extract company from information
+                        info = alt.get("information", "")
+                        if "by " in info:
+                            parts = info.split("by ")
+                            if len(parts) > 1:
+                                company_part = parts[1]
+                                if " (" in company_part:
+                                    alt_company = company_part.split(" (")[0].strip()
+                                
+                    alt_country = alt.get("country", "")
+                    country_code = alt.get("country_code", "")
+                    alt_description = alt.get("information", "")
+                else:
+                    # Old format
+                    alt_name = alt.get("product_name", "Unknown")
+                    alt_company = alt.get("company", "Unknown")
+                    alt_country = alt.get("country", "")
+                    country_code = ""
+                    alt_description = alt.get("description", "")
                 
                 # Create a row for each alternative
                 alt_row = Adw.ActionRow()
                 alt_row.set_title(alt_name)
-                alt_row.set_subtitle(f"by {alt_company} ({alt_country})")
                 
-                # Use country flag emoji based on country name
+                # Set subtitle with company and country
+                if alt_company:
+                    subtitle = f"by {alt_company}"
+                    if alt_country:
+                        subtitle += f" ({alt_country})"
+                    alt_row.set_subtitle(subtitle)
+                
+                # Use country flag emoji based on country name or code
                 country_emoji = self.get_country_flag_emoji(alt_country)
                 country_label = Gtk.Label()
                 country_label.set_markup(f"<span size='large'>{country_emoji}</span>")
@@ -517,6 +546,26 @@ class GtkApp:
                 
                 alt_row.add_suffix(learn_button)
                 self.alt_buttons_box.append(alt_row)
+                
+                # Add description as a separate row if available
+                if alt_description:
+                    desc_label = Gtk.Label(label=alt_description)
+                    desc_label.set_wrap(True)
+                    desc_label.set_xalign(0)  # Align text to the left
+                    desc_label.set_margin_start(32)  # Indent for better hierarchy
+                    desc_label.set_margin_end(16)
+                    desc_label.set_margin_top(4)
+                    desc_label.set_margin_bottom(8)
+                    desc_label.add_css_class("dim-label")  # Slightly dimmed text for description
+                    self.alt_buttons_box.append(desc_label)
+                    
+                    # Add a small separator after each alternative with description
+                    separator = Gtk.Separator.new(Gtk.Orientation.HORIZONTAL)
+                    separator.set_margin_top(8)
+                    separator.set_margin_bottom(8)
+                    separator.set_margin_start(16)
+                    separator.set_margin_end(16)
+                    self.alt_buttons_box.append(separator)
         else:
             self.alt_buttons_group.set_visible(False)
         
@@ -653,63 +702,128 @@ class GtkApp:
     
     def get_country_flag_emoji(self, country_name):
         """Convert a country name to its flag emoji."""
-        # Map of common European countries to their flag emojis
+        if not country_name:
+            return "🇪🇺"
+            
+        # Map of common European countries to their flag emojis (case-insensitive keys)
         country_map = {
-            "Austria": "🇦🇹",
-            "Belgium": "🇧🇪",
-            "Bulgaria": "🇧🇬",
-            "Croatia": "🇭🇷",
-            "Cyprus": "🇨🇾",
-            "Czech Republic": "🇨🇿",
-            "Denmark": "🇩🇰",
-            "Estonia": "🇪🇪",
-            "Finland": "🇫🇮",
-            "France": "🇫🇷",
-            "Germany": "🇩🇪",
-            "Greece": "🇬🇷",
-            "Hungary": "🇭🇺",
-            "Ireland": "🇮🇪",
-            "Italy": "🇮🇹",
-            "Latvia": "🇱🇻",
-            "Lithuania": "🇱🇹",
-            "Luxembourg": "🇱🇺",
-            "Malta": "🇲🇹",
-            "Netherlands": "🇳🇱",
-            "Poland": "🇵🇱",
-            "Portugal": "🇵🇹",
-            "Romania": "🇷🇴",
-            "Slovakia": "🇸🇰",
-            "Slovenia": "🇸🇮",
-            "Spain": "🇪🇸",
-            "Sweden": "🇸🇪",
-            "United Kingdom": "🇬🇧",
-            "Switzerland": "🇨🇭",
-            "Norway": "🇳🇴",
-            "Iceland": "🇮🇸",
-            "Liechtenstein": "🇱🇮",
-            "United States": "🇺🇸",
-            "China": "🇨🇳",
-            "Japan": "🇯🇵",
-            "South Korea": "🇰🇷",
-            "Russia": "🇷🇺",
-            "India": "🇮🇳",
-            "Brazil": "🇧🇷",
-            "Canada": "🇨🇦",
-            "Australia": "🇦🇺",
-            "New Zealand": "🇳🇿",
+            "austria": "🇦🇹",
+            "belgium": "🇧🇪",
+            "bulgaria": "🇧🇬",
+            "croatia": "🇭🇷",
+            "cyprus": "🇨🇾",
+            "czech republic": "🇨🇿",
+            "czechia": "🇨🇿",
+            "denmark": "🇩🇰",
+            "estonia": "🇪🇪",
+            "finland": "🇫🇮",
+            "france": "🇫🇷",
+            "germany": "🇩🇪",
+            "greece": "🇬🇷",
+            "hungary": "🇭🇺",
+            "ireland": "🇮🇪",
+            "italy": "🇮🇹",
+            "latvia": "🇱🇻",
+            "lithuania": "🇱🇹",
+            "luxembourg": "🇱🇺",
+            "malta": "🇲🇹",
+            "netherlands": "🇳🇱",
+            "poland": "🇵🇱",
+            "portugal": "🇵🇹",
+            "romania": "🇷🇴",
+            "slovakia": "🇸🇰",
+            "slovenia": "🇸🇮",
+            "spain": "🇪🇸",
+            "sweden": "🇸🇪",
+            "united kingdom": "🇬🇧",
+            "uk": "🇬🇧", 
+            "switzerland": "🇨🇭",
+            "norway": "🇳🇴",
+            "iceland": "🇮🇸",
+            "liechtenstein": "🇱🇮",
+            "united states": "🇺🇸",
+            "usa": "🇺🇸",
+            "china": "🇨🇳",
+            "japan": "🇯🇵",
+            "south korea": "🇰🇷",
+            "korea": "🇰🇷",
+            "russia": "🇷🇺",
+            "india": "🇮🇳",
+            "brazil": "🇧🇷",
+            "canada": "🇨🇦",
+            "australia": "🇦🇺",
+            "new zealand": "🇳🇿",
+            "pakistan": "🇵🇰",
         }
         
+        # Two-letter country codes 
+        country_codes = {
+            "austria": "AT",
+            "belgium": "BE",
+            "bulgaria": "BG",
+            "croatia": "HR",
+            "cyprus": "CY",
+            "czech republic": "CZ",
+            "czechia": "CZ",
+            "denmark": "DK",
+            "estonia": "EE",
+            "finland": "FI",
+            "france": "FR",
+            "germany": "DE",
+            "greece": "GR",
+            "hungary": "HU",
+            "ireland": "IE",
+            "italy": "IT",
+            "latvia": "LV",
+            "lithuania": "LT",
+            "luxembourg": "LU",
+            "malta": "MT",
+            "netherlands": "NL",
+            "poland": "PL",
+            "portugal": "PT",
+            "romania": "RO",
+            "slovakia": "SK",
+            "slovenia": "SI",
+            "spain": "ES",
+            "sweden": "SE",
+            "united kingdom": "GB",
+            "uk": "GB",
+            "switzerland": "CH",
+            "norway": "NO",
+            "iceland": "IS",
+            "liechtenstein": "LI",
+            "united states": "US",
+            "usa": "US",
+            "china": "CN",
+            "japan": "JP",
+            "south korea": "KR",
+            "korea": "KR",
+            "russia": "RU",
+            "india": "IN",
+            "brazil": "BR",
+            "canada": "CA",
+            "australia": "AU",
+            "new zealand": "NZ",
+            "pakistan": "PK",
+        }
+        
+        # Convert to lowercase for case-insensitive matching
+        country_lower = country_name.lower()
+        
         # Try to match the country name exactly
-        if country_name in country_map:
-            return country_map[country_name]
+        if country_lower in country_map:
+            emoji = country_map[country_lower]
+            code = country_codes.get(country_lower, "EU")
+            return f"{emoji} {code}"
         
         # Check for partial matches
         for known_country, emoji in country_map.items():
-            if known_country in country_name or country_name in known_country:
-                return emoji
+            if known_country in country_lower or country_lower in known_country:
+                code = country_codes.get(known_country, "EU")
+                return f"{emoji} {code}"
         
         # If no match found, return the EU flag as default
-        return "🇪🇺"
+        return "🇪🇺 EU"
     
     def on_thumbs_up_clicked(self, button):
         """Handle thumbs up button click - send positive feedback."""

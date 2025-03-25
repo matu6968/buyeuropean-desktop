@@ -626,32 +626,79 @@ class QtApp:
         # Update the details view
         self.details_view.setText(detailed_text)
         
-        # Handle alternatives
-        alternatives = result.get("alternatives", [])
+        # Handle alternatives - check both potential_alternatives (original format) and alternatives (new format)
+        alternatives = result.get("alternatives", result.get("potential_alternatives", []))
+        
         if alternatives:
             self.clear_alt_buttons()
             self.alternatives_label.setVisible(True)
             self.alternatives_widget.setVisible(True)
             
             for alt in alternatives:
-                # Make sure we have a name for the alternative
-                if not alt.get("name"):
-                    continue
+                # Handle both new and old format
+                if "name" in alt:
+                    # New format
+                    alt_name = alt.get("name", "Unknown")
+                    alt_company = ""
+                    if "by" in alt:
+                        alt_company = alt.get("by", "").replace("by ", "")
                     
-                alt_name = alt.get("name", "Unknown")
-                alt_country = alt.get("country", "")
+                    alt_country = alt.get("country", "")
+                    country_code = alt.get("country_code", "")
+                    alt_description = alt.get("information", "")
+                    
+                    # Try to extract more info from the information field
+                    alt_info = alt.get("information", "")
+                    if alt_info and not alt_company and "by " in alt_info:
+                        # Extract company name from "by Company (Country)" format
+                        parts = alt_info.split("by ")
+                        if len(parts) > 1:
+                            company_part = parts[1]
+                            if " (" in company_part:
+                                alt_company = company_part.split(" (")[0].strip()
+                                if not alt_country and "(" in company_part and ")" in company_part:
+                                    # Extract country from parentheses if not already set
+                                    country_part = company_part.split("(")[1].split(")")[0].strip()
+                                    alt_country = country_part
+                else:
+                    # Old format
+                    alt_name = alt.get("product_name", "Unknown")
+                    alt_company = alt.get("company", "")
+                    alt_country = alt.get("country", "")
+                    country_code = ""
+                    alt_description = alt.get("description", "")
+                
+                # Skip if no name
+                if not alt_name or alt_name == "Unknown":
+                    continue
+                
+                # Create a container for this alternative
+                alt_container = QWidget()
+                alt_container_layout = QVBoxLayout(alt_container)
+                alt_container_layout.setContentsMargins(0, 0, 0, 0)
+                alt_container_layout.setSpacing(4)
+                
+                # Create button with proper information
+                button_text = alt_name
+                tooltip_text = ""
+                
+                # Add country and company info if available
+                country_flag = self.get_country_flag_emoji(alt_country, country_code)
+                if country_flag:
+                    button_text = f"{country_flag} {alt_name}"
+                
+                if alt_company:
+                    tooltip_text = f"by {alt_company}"
+                    if alt_country:
+                        tooltip_text += f" ({alt_country})"
+                elif alt_country:
+                    tooltip_text = f"Country: {alt_country}"
                 
                 # Create a button layout
-                alt_button = QPushButton(f"{alt_name}")
+                alt_button = QPushButton(button_text)
+                if tooltip_text:
+                    alt_button.setToolTip(tooltip_text)
                 
-                if alt_country:
-                    # Add country flag emoji if available
-                    country_code = alt.get("country_code", "")
-                    country_flag = self.get_country_flag_emoji(alt_country, country_code)
-                    alt_button.setText(f"{country_flag} {alt_name}")
-                    if "by" in alt.get("information", ""):
-                        alt_button.setToolTip(alt.get("information", ""))
-                        
                 # Style the button
                 alt_button.setStyleSheet("""
                     QPushButton {
@@ -668,10 +715,38 @@ class QtApp:
                 """)
                 
                 # Connect the button to a search function
-                alt_button.clicked.connect(lambda _, name=alt_name: self.search_alternative(name))
+                search_term = alt_name
+                if alt_company:
+                    search_term += f" {alt_company}"
+                alt_button.clicked.connect(lambda _, term=search_term: self.search_alternative(term))
+                
+                # Add button to container
+                alt_container_layout.addWidget(alt_button)
+                
+                # Add description if available
+                if alt_description:
+                    desc_label = QLabel(alt_description)
+                    desc_label.setWordWrap(True)
+                    desc_label.setStyleSheet("""
+                        QLabel {
+                            color: #aaa;
+                            font-size: 12px;
+                            padding: 2px 8px;
+                            margin-left: 16px;
+                        }
+                    """)
+                    alt_container_layout.addWidget(desc_label)
+                
+                # Add a separator
+                separator = QFrame()
+                separator.setFrameShape(QFrame.HLine)
+                separator.setFrameShadow(QFrame.Sunken)
+                separator.setStyleSheet("QFrame { background-color: #444; margin: 8px 0; }")
+                separator.setMaximumHeight(1)
+                alt_container_layout.addWidget(separator)
                 
                 # Add to layout
-                self.alternatives_layout.addWidget(alt_button)
+                self.alternatives_layout.addWidget(alt_container)
         else:
             self.alternatives_label.setVisible(False)
             self.alternatives_widget.setVisible(False)
@@ -803,7 +878,7 @@ class QtApp:
     def get_country_flag_emoji(self, country_name, country_code=""):
         """Get flag emoji for a country name."""
         if not country_name:
-            return "🇪🇺"
+            return "🇪🇺 EU"
             
         # Use country code if provided (usually more reliable)
         if country_code and len(country_code) == 2:
@@ -830,7 +905,7 @@ class QtApp:
             "finland": "🇫🇮 FI",
             "denmark": "🇩🇰 DK",
             "greece": "🇬🇷 GR",
-            "czech republic": "🇨�� CZ",
+            "czech republic": "🇨🇿 CZ",
             "czechia": "🇨🇿 CZ",
             "portugal": "🇵🇹 PT",
             "ireland": "🇮🇪 IE",
@@ -854,6 +929,11 @@ class QtApp:
         country_lower = country_name.lower()
         if country_lower in country_map:
             return country_map[country_lower]
+        
+        # Check for partial matches
+        for key, flag in country_map.items():
+            if key in country_lower or country_lower in key:
+                return flag
             
         # Fallback to European flag if not found
         return "🇪🇺 EU"
