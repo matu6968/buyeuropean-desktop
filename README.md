@@ -22,6 +22,8 @@ By using this desktop client or the BuyEuropean official native clients for Andr
 - Upload product images for analysis
 - Get detailed information about the product's origin (though it's not always accurate due it being processed by an AI model)
 - See European alternatives for non-European products
+- See the product's classification and rationale for the classification
+- Send feedback (e.g. wrong classification) about the product's classification to the BuyEuropean API
 - Sound effects for success and error notifications
 - Debugging information display (token counts, request IDs)
 - Adaptive UI that uses GTK 4 on Linux/Windows and Qt 6 on macOS/Android which can be set with command line flags
