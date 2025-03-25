@@ -395,6 +395,11 @@ class GtkApp:
         country = result.get("identified_headquarters", "Unknown country")
         classification = result.get("classification", "unknown")
         
+        # Escape special characters for markup
+        product_name_escaped = self.escape_markup(product_name)
+        company_escaped = self.escape_markup(company)
+        country_escaped = self.escape_markup(country)
+        
         # Handle classification properly with GNOME-style icons and colors
         icon_name = "emblem-default-symbolic"
         css_class = "success"
@@ -423,7 +428,7 @@ class GtkApp:
             
         # Create result header with product information
         self.result_label.set_markup(
-            f"<b>{product_name}</b> by <b>{company}</b> from <b>{country}</b>"
+            f"<b>{product_name_escaped}</b> by <b>{company_escaped}</b> from <b>{country_escaped}</b>"
         )
         
         # Set classification with appropriate styling
@@ -517,15 +522,21 @@ class GtkApp:
                     country_code = ""
                     alt_description = alt.get("description", "")
                 
+                # Escape special characters for markup
+                alt_name_escaped = self.escape_markup(alt_name)
+                alt_company_escaped = self.escape_markup(alt_company)
+                alt_country_escaped = self.escape_markup(alt_country)
+                
                 # Create a row for each alternative
                 alt_row = Adw.ActionRow()
-                alt_row.set_title(alt_name)
+                alt_row.set_title(alt_name_escaped)
                 
                 # Set subtitle with company and country
                 if alt_company:
-                    subtitle = f"by {alt_company}"
                     if alt_country:
-                        subtitle += f" ({alt_country})"
+                        subtitle = f"by {alt_company_escaped} ({alt_country_escaped})"
+                    else:
+                        subtitle = f"by {alt_company_escaped}"
                     alt_row.set_subtitle(subtitle)
                 
                 # Use country flag emoji based on country name or code
@@ -929,4 +940,34 @@ class GtkApp:
     
     def run(self):
         """Run the application."""
-        return self.app.run(None) 
+        return self.app.run(None)
+
+    def escape_markup(self, text):
+        """Escape special characters for GTK markup.
+        
+        Args:
+            text: Text to escape
+            
+        Returns:
+            Escaped text safe for use in GTK markup
+        """
+        if not text:
+            return ""
+            
+        # Convert the text to string if it's not already
+        if not isinstance(text, str):
+            text = str(text)
+            
+        # Replace special characters with their escaped versions
+        replacements = [
+            ('&', '&amp;'),   # This must be first to avoid double-escaping
+            ('<', '&lt;'),
+            ('>', '&gt;'),
+            ("'", '&apos;'),
+            ('"', '&quot;'),
+        ]
+        
+        for old, new in replacements:
+            text = text.replace(old, new)
+            
+        return text 

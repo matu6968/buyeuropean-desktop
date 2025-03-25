@@ -551,6 +551,11 @@ class QtApp:
         country = result.get("identified_headquarters", "Unknown country")
         classification = result.get("classification", "unknown")
         
+        # Escape special characters for HTML
+        product_name_escaped = self.escape_html(product_name)
+        company_escaped = self.escape_html(company)
+        country_escaped = self.escape_html(country)
+        
         # Handle classification properly
         if classification == "european_country":
             category = "European"
@@ -570,7 +575,7 @@ class QtApp:
         
         # Set product info
         self.product_info.setText(
-            f"<b>{product_name}</b> by <b>{company}</b> from <b>{country}</b>"
+            f"<b>{product_name_escaped}</b> by <b>{company_escaped}</b> from <b>{country_escaped}</b>"
         )
         
         # Set classification label with color
@@ -687,12 +692,17 @@ class QtApp:
                 if country_flag:
                     button_text = f"{country_flag} {alt_name}"
                 
+                # Escape special characters for tooltip
+                alt_name_escaped = self.escape_html(alt_name)
+                alt_company_escaped = self.escape_html(alt_company)
+                alt_country_escaped = self.escape_html(alt_country)
+                
                 if alt_company:
-                    tooltip_text = f"by {alt_company}"
+                    tooltip_text = f"by {alt_company_escaped}"
                     if alt_country:
-                        tooltip_text += f" ({alt_country})"
+                        tooltip_text += f" ({alt_country_escaped})"
                 elif alt_country:
-                    tooltip_text = f"Country: {alt_country}"
+                    tooltip_text = f"Country: {alt_country_escaped}"
                 
                 # Create a button layout
                 alt_button = QPushButton(button_text)
@@ -1006,4 +1016,34 @@ class QtApp:
     def run(self):
         """Run the application."""
         self.window.show()
-        return self.app.exec() 
+        return self.app.exec()
+
+    def escape_html(self, text):
+        """Escape special characters for HTML markup.
+        
+        Args:
+            text: Text to escape
+            
+        Returns:
+            Escaped text safe for use in HTML markup
+        """
+        if not text:
+            return ""
+            
+        # Convert the text to string if it's not already
+        if not isinstance(text, str):
+            text = str(text)
+            
+        # Replace special characters with their escaped versions
+        replacements = [
+            ('&', '&amp;'),   # This must be first to avoid double-escaping
+            ('<', '&lt;'),
+            ('>', '&gt;'),
+            ('"', '&quot;'),
+            ("'", '&#39;'),
+        ]
+        
+        for old, new in replacements:
+            text = text.replace(old, new)
+            
+        return text 
