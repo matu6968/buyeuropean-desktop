@@ -44,3 +44,161 @@ buyeuropean = "buyeuropean.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.briefcase]
+project_name = "buyeuropean"
+bundle = "com.buyeuropeanio.desktop"
+version = "1.0.0"
+url = "https://buyeuropean.io"
+license.file = "LICENSE"
+author = "matu6968"
+author_email = "wierzejskimateusz8@gmail.com"
+
+[tool.briefcase.app.buyeuropean]
+formal_name = "BuyEuropean Desktop"
+description = "Desktop GUI frontend for the BuyEuropean app and it's API using Qt 6 or GTK 4"
+long_description = "Desktop GUI frontend for the BuyEuropean app and it's API using Qt 6 or GTK 4"
+icon = "icons/buyeuropean.png"
+sources = [
+    "src/buyeuropean",
+]
+test_sources = [
+    "tests",
+]
+
+requires = [
+]
+test_requires = [
+    "pytest",
+]
+
+[tool.briefcase.app.buyeuropean.macOS]
+universal_build = true
+requires = [
+    "PyQt6>=6.0.0",
+    # "std-nslog~=1.0.3",
+]
+
+[tool.briefcase.app.buyeuropean.linux]
+requires = [
+    "PyGObject>=3.40.0",
+    "PyQt6>=6.0.0",
+]
+
+[tool.briefcase.app.buyeuropean.linux.system.debian]
+system_requires = [
+    # Needed to compile pycairo wheel
+    "libcairo2-dev",
+    # Needed to compile PyGObject wheel
+    "libgirepository-2.0-dev",
+]
+
+system_runtime_requires = [
+    # Needed to provide GTK and its GI bindings
+    "gir1.2-gtk-4.0",
+    "libgirepository-1.0-1",
+    # Dependencies that GTK looks for at runtime
+    "libcanberra-gtk4-module",
+    # Needed to provide WebKit2 at runtime
+    # Note: Debian 11 and Ubuntu 20.04 require gir1.2-webkit2-4.0 instead
+    # "gir1.2-webkit2-4.1",
+    "qt6-multimedia-dev"
+    # Needed to make Qt6 work on Linux with multimedia extensions
+]
+
+[tool.briefcase.app.buyeuropean.linux.system.rhel]
+system_requires = [
+    # Needed to compile pycairo wheel
+    "cairo-gobject-devel",
+    # Needed to compile PyGObject wheel
+    "gobject-introspection-devel",
+]
+
+system_runtime_requires = [
+    # Needed to support Python bindings to GTK
+    "gobject-introspection",
+    # Needed to provide GTK
+    "gtk4",
+    # Dependencies that GTK looks for at runtime
+    "libcanberra-gtk4",
+    # Needed to provide WebKit2 at runtime
+    # "webkit2gtk4",
+]
+
+[tool.briefcase.app.buyeuropean.linux.system.suse]
+system_requires = [
+    # Needed to compile pycairo wheel
+    "cairo-devel",
+    # Needed to compile PyGObject wheel
+    "gobject-introspection-devel",
+]
+
+system_runtime_requires = [
+    # Needed to provide GTK
+    "gtk4",
+    # Needed to support Python bindings to GTK
+    "gobject-introspection", "typelib(Gtk) = 4.0",
+    # Dependencies that GTK looks for at runtime
+    "libcanberra-gtk4",
+    # Needed to provide WebKit2 at runtime
+    # "libwebkit2gtk4", "typelib(WebKit2)",
+]
+
+[tool.briefcase.app.buyeuropean.linux.system.arch]
+system_requires = [
+    # Needed to compile pycairo wheel
+    "cairo",
+    # Needed to compile PyGObject wheel
+    "gobject-introspection",
+    # Runtime dependencies that need to exist so that the
+    # Arch package passes final validation.
+    # Needed to provide GTK
+    "gtk4",
+    # Dependencies that GTK looks for at runtime
+    "libcanberra",
+    # Needed to provide WebKit2
+    # "webkit2gtk",
+]
+
+system_runtime_requires = [
+    # Needed to provide GTK
+    "gtk4",
+    # Needed to provide PyGObject bindings
+    "gobject-introspection-runtime",
+    # Dependencies that GTK looks for at runtime
+    "libcanberra",
+    # Needed to provide WebKit2 at runtime
+    # "webkit2gtk",
+]
+
+[tool.briefcase.app.buyeuropean.linux.appimage]
+manylinux = "manylinux_2_28"
+
+system_requires = [
+    # Needed to compile pycairo wheel
+    "cairo-gobject-devel",
+    # Needed to compile PyGObject wheel
+    "gobject-introspection-devel",
+    # Needed to provide GTK
+    "gtk4-devel",
+    # Dependencies that GTK looks for at runtime, that need to be
+    # in the build environment to be picked up by linuxdeploy
+    "libcanberra-gtk4",
+    "PackageKit-gtk4-module",
+    "gvfs-client",
+]
+
+linuxdeploy_plugins = [
+    "DEPLOY_GTK_VERSION=4 gtk",
+]
+
+[tool.briefcase.app.buyeuropean.linux.flatpak]
+flatpak_runtime = "org.gnome.Platform"
+flatpak_runtime_version = "47"
+flatpak_sdk = "org.gnome.Sdk"
+
+[tool.briefcase.app.buyeuropean.windows]
+requires = [
+    "PyQt6>=6.0.0",
+]
+

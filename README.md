@@ -147,44 +147,36 @@ You can replace these sound files with your own OGG or WAV format files during b
 #### The BuyEuropean name and logo are properties of Felix Graeber.
 Everything else is under the MIT license.
 
-## Packaging with PyInstaller
+## Packaging with Briefcase
 
-You can create a standalone executable for the BuyEuropean desktop application using PyInstaller.
+You can create a standalone executable for the BuyEuropean desktop application using Briefcase, and picked due to it being far more convenient and easier to manage dependencies than using PyInstaller.
 
 ### Prerequisites
 
-- PyInstaller (`pip install pyinstaller`)
-- All required dependencies for BuyEuropean
-
-### Preparation
-
-1. Run the preparation script to ensure all data files are available:
-
-```bash
-./scripts/prepare_for_pyinstaller.py
-```
-
-This script checks for necessary assets and ensures logos are properly set up for both UI versions.
+- Briefcase (`pip install briefcase`)
+- Docker (optional, only needed if you want to build the application for a specific platform version)
 
 ### Building the Package
 
-1. Build the package using the provided spec file:
-
 ```bash
-pyinstaller buyeuropean.spec
+briefcase build
 ```
 
-2. The resulting package will be in the `dist/buyeuropean` directory.
+This will build the application for the current platform (based off the current host platform) and create a distributable package.
 
-### Running the Packaged Application
-
-- On Linux/macOS: 
+If you want to target a specific package type, you can use the `--packaging-format` flag.
 
 ```bash
-./dist/buyeuropean/buyeuropean
+briefcase build --packaging-format deb
 ```
 
-- On Windows: run the `buyeuropean.exe` file in the `dist\buyeuropean` directory.
+Additionaly, if you want to target a specific platform version, you can use the `--target` flag.
+
+```bash
+briefcase build --target ubuntu:jammy
+```
+
+This will build the application using a Ubuntu 22.04 (Jammy Jellyfish) Docker container.
 
 ### Troubleshooting
 
