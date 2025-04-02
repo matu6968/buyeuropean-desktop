@@ -569,6 +569,14 @@ class QtApp:
             category = "European Sceptic"
             color = "#ff6600"  # Orange
             self.play_sound(False)  # Error sound
+        elif classification == "european_adversary":
+            category = "European Adversary"
+            color = "#ff0000"  # Red
+            self.play_sound(False)  # Error sound
+        elif classification == "neutral":
+            category = "Neutral"
+            color = "#999999"  # Gray
+            # No sound for neutral classification
         else:
             category = "Unknown"
             color = "#cc9900"  # Yellow-orange

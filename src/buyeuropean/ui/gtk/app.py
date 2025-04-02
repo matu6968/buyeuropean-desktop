@@ -418,6 +418,16 @@ class GtkApp:
             icon_name = "dialog-warning-symbolic"
             css_class = "warning"
             self.play_sound(False)  # Error sound
+        elif classification == "european_adversary":
+            category = "European Adversary"
+            icon_name = "dialog-error-symbolic"
+            css_class = "error"
+            self.play_sound(False)  # Error sound
+        elif classification == "neutral":
+            category = "Neutral"
+            icon_name = "dialog-information-symbolic"
+            css_class = "dim-label"
+            # No sound for neutral classification
         else:
             category = "Unknown"
             icon_name = "dialog-question-symbolic"
