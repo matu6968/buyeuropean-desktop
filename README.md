@@ -14,7 +14,7 @@ A unofficial desktop client for the [BuyEuropean](https://buyeuropean.io/) API t
 ## Disclaimer
 
 This is an **unofficial desktop client** for the BuyEuropean API and is **not affiliated with the BuyEuropean project**.  
-The BuyEuropean API is a free service that uses OpenAI's GPT-4o model (likely) to analyze product images and determine if they're from European companies.  
+The BuyEuropean API is a free service that uses 3 AI models in parallel (Mistral, Gemini and GPT-o3-mini) to analyze product images and determine if they're from European companies.  
 By using this desktop client or the BuyEuropean official native clients for Android and iOS, you agree to the [BuyEuropean terms and conditions](https://buyeuropean.io/terms) and [BuyEuropean privacy policy](https://buyeuropean.io/privacy-policy). 
 
 ## Features
