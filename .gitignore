@@ -1,6 +1,7 @@
 # due to using nox and pytest
 .nox
 .cache
+.pytest_cache
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -11,6 +11,7 @@
 #  and also to help confirm pull requests to this project.
 
 import os
+import shutil
 
 import nox
 
@@ -43,6 +44,13 @@ def build_and_check_dists(session):
 @nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13"])
 def tests(session):
     session.install("pytest")
+    
+    # Clean up old build artifacts
+    if os.path.exists("dist"):
+        shutil.rmtree("dist")
+    if os.path.exists("build"):
+        shutil.rmtree("build")
+    
     build_and_check_dists(session)
 
     generated_files = os.listdir("dist/")

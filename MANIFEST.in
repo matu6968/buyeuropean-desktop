@@ -10,3 +10,4 @@ recursive-include src *.ogg
 recursive-include src *.png
 recursive-include src *.wav
 include *.json
+recursive-include buyeuropean-api-outputs *
