@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [ "Windows", "macOS", "Ubuntu-22.04", "Fedora-40"]
+        target: [ "Windows", "macOS", "Ubuntu-24.04", "Fedora-40"]
         include:
           - target: "Windows"
             output-format: "app"
@@ -34,15 +34,15 @@ jobs:
             output-format: "app"
             runs-on: "macos-latest"
 
-          - target: "Ubuntu-22.04"
+          - target: "Ubuntu-24.04"
             platform: "Linux"
             output-format: "system"
             runs-on: "ubuntu-latest"
             pre-command: |
               sudo apt-get update
-              sudo apt-get -y install socat gir1.2-gtk-3.0 libgirepository1.0-dev libcairo2-dev
+              sudo apt-get -y install socat gir1.2-gtk-4.0 clibcairo2-dev
             briefcase-run-prefix: "xvfb-run"
-            briefcase-args: "--target ubuntu:22.04"
+            briefcase-args: "--target ubuntu:24.04"
 
           - target: "Fedora-40"
             platform: "Linux"
@@ -53,7 +53,6 @@ jobs:
               sudo apt-get -y install socat
             briefcase-run-prefix: "xvfb-run"
             briefcase-args: "--target fedora:40"
-            briefcase-build-args: "--system-requires=gtk4 gobject-introspection-devel libcanberra"
 
     steps:
       - name: Checkout
@@ -103,13 +102,17 @@ jobs:
       - name: Check for version changes
         id: version_check
         run: |
-          # Get the current version from pyproject.toml and api.py
-          current_version=$(grep -oP '(?<=^version = ")[^"]*' pyproject.toml)
-          api_version=$(grep -oP '(?<=VERSION = ")[^"]*' src/buyeuropean/api.py)
+          # Get the current version from pyproject.toml and api.py using more portable commands
+          current_version=$(grep -E 'version = "[^"]*"' pyproject.toml | cut -d'"' -f2)
+          api_version=$(grep -E 'VERSION = "[^"]*"' src/buyeuropean/api.py | cut -d'"' -f2)
           
-          # Get the last release version
-          last_release=$(git tag --sort=-creatordate | head -n 1 | sed 's/v//')
-
+          # Get the last release version safely
+          last_release=$(git tag --sort=-creatordate | head -n 1 | sed 's/v//' || echo "0.0.0")
+          
+          echo "Current version: $current_version"
+          echo "API version: $api_version"
+          echo "Last release: $last_release"
+          
           # Check if the current version is different from the last release
           if [ "$current_version" != "$last_release" ] || [ "$api_version" != "$last_release" ]; then
             echo "version_changed=true" >> $GITHUB_ENV
@@ -149,4 +152,7 @@ jobs:
           echo "Target: ${{ matrix.target }}"
           echo "Platform: ${{ matrix.platform || matrix.target }}"
           echo "Output format: ${{ matrix.output-format }}"
+          echo "OS information:"
+          uname -a || echo "uname not available"
           python --version
+          grep --version || echo "grep version not available"
