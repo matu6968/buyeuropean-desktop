@@ -1,0 +1,12 @@
+include *.json
+include *.py
+include CHANGELOG
+recursive-include assets *.png
+recursive-include icons *.icns
+recursive-include icons *.ico
+recursive-include icons *.png
+recursive-include scripts *.py
+recursive-include src *.ogg
+recursive-include src *.png
+recursive-include src *.wav
+include *.json
