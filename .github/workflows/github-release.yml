@@ -1,0 +1,139 @@
+name: GitHub Release
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# Cancel active CI runs for a PR before starting another run
+concurrency:
+  group: ${{ github.workflow}}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  FORCE_COLOR: "1"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ci:
+    name: Test and Package
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ "Windows", "macOS", "Ubuntu-24.04", "Fedora-40"]
+        include:
+          - target: "Windows"
+            output-format: "app"
+            runs-on: "windows-latest"
+
+          - target: "macOS"
+            output-format: "app"
+            runs-on: "macos-latest"
+
+          - target: "Ubuntu-22.04"
+            platform: "Linux"
+            output-format: "system"
+            runs-on: "ubuntu-latest"
+            pre-command: "sudo apt -y install socat"
+            briefcase-run-prefix: "xvfb-run"
+            briefcase-args: "--target ubuntu:22.04"
+
+          - target: "Fedora-40"
+            platform: "Linux"
+            output-format: "system"
+            runs-on: "ubuntu-latest"
+            pre-command: "sudo apt -y install socat"
+            briefcase-run-prefix: "xvfb-run"
+            briefcase-args: "--target fedora:40"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"  # update with your targeted Python version
+
+      - name: Install Briefcase
+        run: |
+          python -m pip install -U pip setuptools wheel
+          python -m pip install briefcase
+
+      - name: Build App
+        run: |
+          ${{ matrix.briefcase-build-prefix }} \
+          briefcase build \
+            ${{ matrix.platform || matrix.target }} \
+            ${{ matrix.output-format }} \
+            --test --no-input --log \
+            ${{ matrix.briefcase-args }} \
+            ${{ matrix.briefcase-build-args }}
+
+      - name: Test App
+        run: |
+          ${{ matrix.briefcase-run-prefix }} \
+          briefcase run \
+            ${{ matrix.platform || matrix.target }} \
+            ${{ matrix.output-format }} \
+            --test --no-input --log \
+            ${{ matrix.briefcase-args }} \
+            ${{ matrix.briefcase-run-args }}
+
+      - name: Package App
+        run: |
+          ${{ matrix.briefcase-package-prefix }} \
+          briefcase package \
+            ${{ matrix.platform || matrix.target }} \
+            ${{ matrix.output-format }} \
+            --update --adhoc-sign --no-input --log \
+            ${{ matrix.briefcase-args }} \
+            ${{ matrix.briefcase-package-args }}
+
+      - name: Check for version changes
+        id: version_check
+        run: |
+          # Get the current version from pyproject.toml and api.py
+          current_version=$(grep -oP '(?<=^version = ")[^"]*' pyproject.toml)
+          api_version=$(grep -oP '(?<=VERSION = ")[^"]*' src/buyeuropean/api.py)
+          
+          # Get the last release version
+          last_release=$(git tag --sort=-creatordate | head -n 1 | sed 's/v//')
+
+          # Check if the current version is different from the last release
+          if [ "$current_version" != "$last_release" ] || [ "$api_version" != "$last_release" ]; then
+            echo "version_changed=true" >> $GITHUB_ENV
+          else
+            echo "version_changed=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          draft: false
+          prerelease: ${{ github.event.inputs.stable != 'true' && env.version_changed == 'false' }}
+          files: |
+            dist/*.whl
+            dist/*.exe
+            dist/*.dmg
+            dist/*.deb
+            dist/*.rpm
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.AppImage
+            
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Log-Failure-${{ matrix.target }}
+          path: logs/*
