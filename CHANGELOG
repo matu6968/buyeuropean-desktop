@@ -1,2 +1,7 @@
 1.0.0
 - Initial release
+
+1.1.0
+- Added support for 3-letter ISO country codes due to a API output change
+- Added support for ultimate parent company & its headquarters
+- Added support for detecting if the scanned image of a product, animal or human

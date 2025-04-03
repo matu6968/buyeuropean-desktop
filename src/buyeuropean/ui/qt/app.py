@@ -548,13 +548,28 @@ class QtApp:
         # Update the main result label
         product_name = result.get("identified_product_name", "Unknown product")
         company = result.get("identified_company", "Unknown company")
-        country = result.get("identified_headquarters", "Unknown country")
+        country_code = result.get("identified_company_headquarters", "")
+        country = country_code  # Start with code, will be expanded if available
+        
+        # Get the parent company information if available
+        parent_company = result.get("ultimate_parent_company")
+        parent_country_code = result.get("ultimate_parent_company_headquarters")
+        
+        # Get product/animal/human classification
+        item_type = result.get("product_or_animal_or_human", "product")
+        
         classification = result.get("classification", "unknown")
         
         # Escape special characters for HTML
         product_name_escaped = self.escape_html(product_name)
         company_escaped = self.escape_html(company)
         country_escaped = self.escape_html(country)
+        
+        # Try to get a more readable country name for display
+        country_name = self.get_country_name_from_code(country_code)
+        if country_name:
+            country = f"{country_name} ({country_code})"
+            country_escaped = self.escape_html(country)
         
         # Handle classification properly
         if classification == "european_country":
@@ -581,10 +596,26 @@ class QtApp:
             category = "Unknown"
             color = "#cc9900"  # Yellow-orange
         
-        # Set product info
-        self.product_info.setText(
-            f"<b>{product_name_escaped}</b> by <b>{company_escaped}</b> from <b>{country_escaped}</b>"
-        )
+        # Set product info with parent company if available
+        if parent_company and parent_company != company:
+            # Get readable parent company country name
+            parent_company_escaped = self.escape_html(parent_company)
+            parent_country_name = self.get_country_name_from_code(parent_country_code)
+            parent_country_display = parent_country_code
+            if parent_country_name:
+                parent_country_display = f"{parent_country_name} ({parent_country_code})"
+            parent_country_escaped = self.escape_html(parent_country_display)
+            
+            # Include parent company in the display
+            self.product_info.setText(
+                f"<b>{product_name_escaped}</b> by <b>{company_escaped}</b> from <b>{country_escaped}</b><br/>"
+                f"<span style='font-size: 12px;'>Parent company: <b>{parent_company_escaped}</b> from <b>{parent_country_escaped}</b></span>"
+            )
+        else:
+            # Standard display without parent company
+            self.product_info.setText(
+                f"<b>{product_name_escaped}</b> by <b>{company_escaped}</b> from <b>{country_escaped}</b>"
+            )
         
         # Set classification label with color
         self.classification_label.setText(
@@ -596,8 +627,23 @@ class QtApp:
             f"Product: {product_name}\n"
             f"Company: {company}\n"
             f"Headquarters: {country}\n"
-            f"Classification: {classification}\n\n"
         )
+        
+        # Add parent company info if available and different
+        if parent_company and parent_company != company:
+            parent_country_display = parent_country_code
+            parent_country_name = self.get_country_name_from_code(parent_country_code)
+            if parent_country_name:
+                parent_country_display = f"{parent_country_name} ({parent_country_code})"
+                
+            detailed_text += f"Parent Company: {parent_company}\n"
+            detailed_text += f"Parent Company HQ: {parent_country_display}\n"
+        
+        # Add classification and item type
+        detailed_text += f"Classification: {classification}\n"
+        if item_type and item_type != "product":
+            detailed_text += f"Detected Type: {item_type}\n"
+        detailed_text += "\n"
         
         # Add identification rationale with better formatting
         rationale = result.get('identification_rationale', '')
@@ -895,8 +941,35 @@ class QtApp:
     
     def get_country_flag_emoji(self, country_name, country_code=""):
         """Get flag emoji for a country name."""
-        if not country_name:
+        if not country_name and not country_code:
             return "🇪🇺 EU"
+            
+        # Handle 3-letter ISO country codes
+        if country_code and len(country_code) == 3:
+            # Map of 3-letter codes to 2-letter codes for emoji conversion
+            code_map = {
+                "AUT": "AT", "BEL": "BE", "BGR": "BG", "HRV": "HR", "CYP": "CY",
+                "CZE": "CZ", "DNK": "DK", "EST": "EE", "FIN": "FI", "FRA": "FR",
+                "DEU": "DE", "GRC": "GR", "HUN": "HU", "IRL": "IE", "ITA": "IT",
+                "LVA": "LV", "LTU": "LT", "LUX": "LU", "MLT": "MT", "NLD": "NL",
+                "POL": "PL", "PRT": "PT", "ROU": "RO", "SVK": "SK", "SVN": "SI",
+                "ESP": "ES", "SWE": "SE", "GBR": "GB", "CHE": "CH", "NOR": "NO",
+                "ISL": "IS", "LIE": "LI", "USA": "US", "CAN": "CA", "JPN": "JP",
+                "CHN": "CN", "RUS": "RU", "KOR": "KR", "IND": "IN", "BRA": "BR",
+                "AUS": "AU", "NZL": "NZ", "MEX": "MX", "ZAF": "ZA", "TUR": "TR",
+                "ISR": "IL", "ARE": "AE", "ARG": "AR", "SGP": "SG", "MYS": "MY",
+                "IDN": "ID", "THA": "TH", "VNM": "VN", "PAK": "PK",
+            }
+            
+            # Convert to 2-letter code if available
+            if country_code in code_map:
+                two_letter = code_map[country_code]
+                # Convert to flag emoji (regional indicator symbols)
+                flag = chr(ord(two_letter[0]) + 127397) + chr(ord(two_letter[1]) + 127397)
+                return f"{flag} {country_code}"
+            else:
+                # Return EU flag if code not found
+                return "🇪🇺 EU"
             
         # Use country code if provided (usually more reliable)
         if country_code and len(country_code) == 2:
@@ -944,13 +1017,13 @@ class QtApp:
         }
         
         # Try to match the country name
-        country_lower = country_name.lower()
+        country_lower = country_name.lower() if country_name else ""
         if country_lower in country_map:
             return country_map[country_lower]
         
         # Check for partial matches
         for key, flag in country_map.items():
-            if key in country_lower or country_lower in key:
+            if country_lower and (key in country_lower or country_lower in key):
                 return flag
             
         # Fallback to European flag if not found
@@ -1055,3 +1128,68 @@ class QtApp:
             text = text.replace(old, new)
             
         return text 
+
+    def get_country_name_from_code(self, code):
+        """Convert a country code to a country name."""
+        if not code:
+            return ""
+            
+        # Map of ISO 3166-1 alpha-3 codes to country names
+        country_codes = {
+            "AUT": "Austria",
+            "BEL": "Belgium",
+            "BGR": "Bulgaria",
+            "HRV": "Croatia",
+            "CYP": "Cyprus",
+            "CZE": "Czech Republic",
+            "DNK": "Denmark",
+            "EST": "Estonia",
+            "FIN": "Finland",
+            "FRA": "France",
+            "DEU": "Germany",
+            "GRC": "Greece",
+            "HUN": "Hungary",
+            "IRL": "Ireland",
+            "ITA": "Italy",
+            "LVA": "Latvia",
+            "LTU": "Lithuania",
+            "LUX": "Luxembourg",
+            "MLT": "Malta",
+            "NLD": "Netherlands",
+            "POL": "Poland",
+            "PRT": "Portugal",
+            "ROU": "Romania",
+            "SVK": "Slovakia",
+            "SVN": "Slovenia",
+            "ESP": "Spain",
+            "SWE": "Sweden",
+            "GBR": "United Kingdom",
+            "CHE": "Switzerland",
+            "NOR": "Norway",
+            "ISL": "Iceland",
+            "LIE": "Liechtenstein",
+            "USA": "United States",
+            "CAN": "Canada",
+            "JPN": "Japan",
+            "CHN": "China",
+            "RUS": "Russia",
+            "KOR": "South Korea",
+            "IND": "India",
+            "BRA": "Brazil",
+            "AUS": "Australia",
+            "NZL": "New Zealand",
+            "MEX": "Mexico",
+            "ZAF": "South Africa",
+            "TUR": "Turkey",
+            "ISR": "Israel",
+            "ARE": "United Arab Emirates",
+            "ARG": "Argentina",
+            "SGP": "Singapore",
+            "MYS": "Malaysia",
+            "IDN": "Indonesia",
+            "THA": "Thailand",
+            "VNM": "Vietnam",
+            "PAK": "Pakistan",
+        }
+        
+        return country_codes.get(code, "") 

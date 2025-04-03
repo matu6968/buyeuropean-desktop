@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "buyeuropean-desktop"
-version = "1.0.0"
+version = "1.1.0"
 authors = [
   { name="matu6968", email="wierzejskimateusz8@gmail.com" },
 ]
@@ -48,7 +48,7 @@ where = ["src"]
 [tool.briefcase]
 project_name = "buyeuropean"
 bundle = "com.buyeuropeanio.desktop"
-version = "1.0.0"
+version = "1.1.0"
 url = "https://buyeuropean.io"
 license.file = "LICENSE"
 author = "matu6968"

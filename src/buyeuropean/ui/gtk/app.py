@@ -392,13 +392,28 @@ class GtkApp:
         # Update the main result label
         product_name = result.get("identified_product_name", "Unknown product")
         company = result.get("identified_company", "Unknown company")
-        country = result.get("identified_headquarters", "Unknown country")
+        country_code = result.get("identified_company_headquarters", "")
+        country = country_code  # Start with the code, will be expanded if available
+        
+        # Get the parent company information if available
+        parent_company = result.get("ultimate_parent_company")
+        parent_country_code = result.get("ultimate_parent_company_headquarters")
+        
+        # Get product/animal/human classification
+        item_type = result.get("product_or_animal_or_human", "product")
+        
         classification = result.get("classification", "unknown")
         
         # Escape special characters for markup
         product_name_escaped = self.escape_markup(product_name)
         company_escaped = self.escape_markup(company)
         country_escaped = self.escape_markup(country)
+        
+        # Try to get a more readable country name for display
+        country_name = self.get_country_name_from_code(country_code)
+        if country_name:
+            country = f"{country_name} ({country_code})"
+            country_escaped = self.escape_markup(country)
         
         # Handle classification properly with GNOME-style icons and colors
         icon_name = "emblem-default-symbolic"
@@ -435,11 +450,26 @@ class GtkApp:
             
         # Set the result icon
         self.result_icon.set_from_icon_name(icon_name)
-            
+        
         # Create result header with product information
-        self.result_label.set_markup(
-            f"<b>{product_name_escaped}</b> by <b>{company_escaped}</b> from <b>{country_escaped}</b>"
-        )
+        if parent_company and parent_company != company:
+            parent_company_escaped = self.escape_markup(parent_company)
+            parent_country_name = self.get_country_name_from_code(parent_country_code)
+            parent_country_display = parent_country_code
+            if parent_country_name:
+                parent_country_display = f"{parent_country_name} ({parent_country_code})"
+            parent_country_escaped = self.escape_markup(parent_country_display)
+            
+            # Include parent company in display
+            self.result_label.set_markup(
+                f"<b>{product_name_escaped}</b> by <b>{company_escaped}</b> from <b>{country_escaped}</b>\n"
+                f"<span size='small'>Parent company: <b>{parent_company_escaped}</b> from <b>{parent_country_escaped}</b></span>"
+            )
+        else:
+            # Standard display without parent company
+            self.result_label.set_markup(
+                f"<b>{product_name_escaped}</b> by <b>{company_escaped}</b> from <b>{country_escaped}</b>"
+            )
         
         # Set classification with appropriate styling
         self.classification_label.set_markup(f"<span size='large'><b>{category}</b></span>")
@@ -453,8 +483,23 @@ class GtkApp:
             f"Product: {product_name}\n"
             f"Company: {company}\n"
             f"Headquarters: {country}\n"
-            f"Classification: {classification}\n\n"
         )
+        
+        # Add parent company info if available and different
+        if parent_company and parent_company != company:
+            parent_country_display = parent_country_code
+            parent_country_name = self.get_country_name_from_code(parent_country_code)
+            if parent_country_name:
+                parent_country_display = f"{parent_country_name} ({parent_country_code})"
+                
+            detailed_text += f"Parent Company: {parent_company}\n"
+            detailed_text += f"Parent Company HQ: {parent_country_display}\n"
+            
+        # Add classification and item type
+        detailed_text += f"Classification: {classification}\n"
+        if item_type and item_type != "product":
+            detailed_text += f"Detected Type: {item_type}\n"
+        detailed_text += "\n"
         
         # Add identification rationale with better formatting
         rationale = result.get('identification_rationale', '')
@@ -550,7 +595,7 @@ class GtkApp:
                     alt_row.set_subtitle(subtitle)
                 
                 # Use country flag emoji based on country name or code
-                country_emoji = self.get_country_flag_emoji(alt_country)
+                country_emoji = self.get_country_flag_emoji(alt_country, country_code)
                 country_label = Gtk.Label()
                 country_label.set_markup(f"<span size='large'>{country_emoji}</span>")
                 country_label.set_margin_end(6)
@@ -721,11 +766,38 @@ class GtkApp:
             except:
                 pass
     
-    def get_country_flag_emoji(self, country_name):
+    def get_country_flag_emoji(self, country_name, country_code=""):
         """Convert a country name to its flag emoji."""
-        if not country_name:
+        if not country_name and not country_code:
             return "🇪🇺"
             
+        # Handle 3-letter ISO country codes
+        if country_code and len(country_code) == 3:
+            # Map of 3-letter codes to 2-letter codes for emoji conversion
+            code_map = {
+                "AUT": "AT", "BEL": "BE", "BGR": "BG", "HRV": "HR", "CYP": "CY",
+                "CZE": "CZ", "DNK": "DK", "EST": "EE", "FIN": "FI", "FRA": "FR",
+                "DEU": "DE", "GRC": "GR", "HUN": "HU", "IRL": "IE", "ITA": "IT",
+                "LVA": "LV", "LTU": "LT", "LUX": "LU", "MLT": "MT", "NLD": "NL",
+                "POL": "PL", "PRT": "PT", "ROU": "RO", "SVK": "SK", "SVN": "SI",
+                "ESP": "ES", "SWE": "SE", "GBR": "GB", "CHE": "CH", "NOR": "NO",
+                "ISL": "IS", "LIE": "LI", "USA": "US", "CAN": "CA", "JPN": "JP",
+                "CHN": "CN", "RUS": "RU", "KOR": "KR", "IND": "IN", "BRA": "BR",
+                "AUS": "AU", "NZL": "NZ", "MEX": "MX", "ZAF": "ZA", "TUR": "TR",
+                "ISR": "IL", "ARE": "AE", "ARG": "AR", "SGP": "SG", "MYS": "MY",
+                "IDN": "ID", "THA": "TH", "VNM": "VN", "PAK": "PK",
+            }
+            
+            # Convert to 2-letter code if available
+            if country_code in code_map:
+                two_letter = code_map[country_code]
+                # Convert to flag emoji (regional indicator symbols)
+                flag = chr(ord(two_letter[0]) + 127397) + chr(ord(two_letter[1]) + 127397)
+                return f"{flag} {country_code}"
+            else:
+                # Return EU flag if code not found
+                return "🇪🇺 EU"
+                
         # Map of common European countries to their flag emojis (case-insensitive keys)
         country_map = {
             "austria": "🇦🇹",
@@ -829,7 +901,7 @@ class GtkApp:
         }
         
         # Convert to lowercase for case-insensitive matching
-        country_lower = country_name.lower()
+        country_lower = country_name.lower() if country_name else ""
         
         # Try to match the country name exactly
         if country_lower in country_map:
@@ -839,7 +911,7 @@ class GtkApp:
         
         # Check for partial matches
         for known_country, emoji in country_map.items():
-            if known_country in country_lower or country_lower in known_country:
+            if country_lower and (known_country in country_lower or country_lower in known_country):
                 code = country_codes.get(known_country, "EU")
                 return f"{emoji} {code}"
         
@@ -981,3 +1053,68 @@ class GtkApp:
             text = text.replace(old, new)
             
         return text 
+
+    def get_country_name_from_code(self, code):
+        """Convert a country code to a country name."""
+        if not code:
+            return ""
+            
+        # Map of ISO 3166-1 alpha-3 codes to country names
+        country_codes = {
+            "AUT": "Austria",
+            "BEL": "Belgium",
+            "BGR": "Bulgaria",
+            "HRV": "Croatia",
+            "CYP": "Cyprus",
+            "CZE": "Czech Republic",
+            "DNK": "Denmark",
+            "EST": "Estonia",
+            "FIN": "Finland",
+            "FRA": "France",
+            "DEU": "Germany",
+            "GRC": "Greece",
+            "HUN": "Hungary",
+            "IRL": "Ireland",
+            "ITA": "Italy",
+            "LVA": "Latvia",
+            "LTU": "Lithuania",
+            "LUX": "Luxembourg",
+            "MLT": "Malta",
+            "NLD": "Netherlands",
+            "POL": "Poland",
+            "PRT": "Portugal",
+            "ROU": "Romania",
+            "SVK": "Slovakia",
+            "SVN": "Slovenia",
+            "ESP": "Spain",
+            "SWE": "Sweden",
+            "GBR": "United Kingdom",
+            "CHE": "Switzerland",
+            "NOR": "Norway",
+            "ISL": "Iceland",
+            "LIE": "Liechtenstein",
+            "USA": "United States",
+            "CAN": "Canada",
+            "JPN": "Japan",
+            "CHN": "China",
+            "RUS": "Russia",
+            "KOR": "South Korea",
+            "IND": "India",
+            "BRA": "Brazil",
+            "AUS": "Australia",
+            "NZL": "New Zealand",
+            "MEX": "Mexico",
+            "ZAF": "South Africa",
+            "TUR": "Turkey",
+            "ISR": "Israel",
+            "ARE": "United Arab Emirates",
+            "ARG": "Argentina",
+            "SGP": "Singapore",
+            "MYS": "Malaysia",
+            "IDN": "Indonesia",
+            "THA": "Thailand",
+            "VNM": "Vietnam",
+            "PAK": "Pakistan",
+        }
+        
+        return country_codes.get(code, "") 
