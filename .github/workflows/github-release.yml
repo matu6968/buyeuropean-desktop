@@ -103,8 +103,8 @@ jobs:
           api_version=$(grep -E 'VERSION = "[^"]*"' src/buyeuropean/api.py | cut -d'"' -f2)
           
           # Set it as output and environment variable
-          echo "current_version=$current_version" >> $GITHUB_ENV
-          echo "current_version=$current_version" >> $GITHUB_OUTPUT
+          echo "current_version=${current_version}" >> $GITHUB_ENV
+          echo "::set-output name=current_version::${current_version}"
           
           # Get the last release version safely
           last_release=$(git tag --sort=-creatordate | head -n 1 | sed 's/v//' || echo "0.0.0")
@@ -120,11 +120,18 @@ jobs:
             echo "version_changed=false" >> $GITHUB_ENV
           fi
 
+      - name: Set release tag
+        id: tag
+        run: |
+          VERSION=$(grep -E 'version = "[^"]*"' pyproject.toml | cut -d'"' -f2)
+          echo "release_tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "Tag will be: v${VERSION}"
+
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ env.current_version || '0.0.1' }}  # Use the current version or a fallback
+          tag_name: ${{ steps.tag.outputs.release_tag }}
           draft: false
           prerelease: ${{ github.event.inputs.stable != 'true' && env.version_changed == 'false' }}
           files: |
@@ -136,7 +143,6 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/*.AppImage
-            
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
