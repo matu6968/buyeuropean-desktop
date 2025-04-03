@@ -24,15 +24,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [ "Windows", "macOS", "Ubuntu-24.04", "Fedora-40"]
+        target: [ "Windows", "Ubuntu-24.04", "Fedora-40"]
         include:
           - target: "Windows"
             output-format: "app"
             runs-on: "windows-latest"
-
-          - target: "macOS"
-            output-format: "app"
-            runs-on: "macos-latest"
 
           - target: "Ubuntu-24.04"
             platform: "Linux"
@@ -102,9 +98,13 @@ jobs:
       - name: Check for version changes
         id: version_check
         run: |
-          # Get the current version from pyproject.toml and api.py using more portable commands
+          # Get the current version from pyproject.toml
           current_version=$(grep -E 'version = "[^"]*"' pyproject.toml | cut -d'"' -f2)
           api_version=$(grep -E 'VERSION = "[^"]*"' src/buyeuropean/api.py | cut -d'"' -f2)
+          
+          # Set it as output and environment variable
+          echo "current_version=$current_version" >> $GITHUB_ENV
+          echo "current_version=$current_version" >> $GITHUB_OUTPUT
           
           # Get the last release version safely
           last_release=$(git tag --sort=-creatordate | head -n 1 | sed 's/v//' || echo "0.0.0")
@@ -124,12 +124,12 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
+          tag_name: v${{ env.current_version || '0.0.1' }}  # Use the current version or a fallback
           draft: false
           prerelease: ${{ github.event.inputs.stable != 'true' && env.version_changed == 'false' }}
           files: |
             dist/*.whl
-            dist/*.exe
+            dist/*.msi
             dist/*.dmg
             dist/*.deb
             dist/*.rpm
@@ -156,3 +156,7 @@ jobs:
           uname -a || echo "uname not available"
           python --version
           grep --version || echo "grep version not available"
+
+permissions:
+  contents: write  # To create releases without getting 403 error
+  packages: write  # To upload artifacts to GitHub Packages

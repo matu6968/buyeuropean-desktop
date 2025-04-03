@@ -98,7 +98,7 @@ system_runtime_requires = [
     "gir1.2-gtk-4.0",
     "libgirepository-1.0-1",
     # Dependencies that GTK looks for at runtime
-    "libcanberra-gtk4-module",
+    "libcanberra-dev",
     # Needed to provide WebKit2 at runtime
     # Note: Debian 11 and Ubuntu 20.04 require gir1.2-webkit2-4.0 instead
     # "gir1.2-webkit2-4.1",
