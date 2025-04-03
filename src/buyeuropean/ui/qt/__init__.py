@@ -1,1 +1,1 @@
-"""Qt UI package for BuyEuropean.""" 
+"""Qt UI package for BuyEuropean."""

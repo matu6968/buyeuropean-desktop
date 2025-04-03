@@ -1,1 +1,1 @@
-"""UI package for BuyEuropean.""" 
+"""UI package for BuyEuropean."""

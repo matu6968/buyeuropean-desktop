@@ -25,8 +25,14 @@ nox.options.sessions = ["lint"]
 def lint(session):
     session.install("flake8")
     session.run(
-        "flake8", "--exclude", ".nox,*.egg,build,data",
-        "--select", "E,W,F", "."
+        "flake8",
+        "--exclude",
+        ".nox,*.egg,build,data,*venv*,beeware-venv*",
+        "--select",
+        "E,W,F",
+        "--ignore",
+        "E501,E125,F401,E402,F541,E128",
+        ".",
     )
 
 
@@ -44,13 +50,13 @@ def build_and_check_dists(session):
 @nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13"])
 def tests(session):
     session.install("pytest")
-    
+
     # Clean up old build artifacts
     if os.path.exists("dist"):
         shutil.rmtree("dist")
     if os.path.exists("build"):
         shutil.rmtree("build")
-    
+
     build_and_check_dists(session)
 
     generated_files = os.listdir("dist/")

@@ -1,1 +1,1 @@
-"""GTK UI package for BuyEuropean.""" 
+"""GTK UI package for BuyEuropean."""
