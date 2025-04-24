@@ -36,7 +36,7 @@ jobs:
             runs-on: "ubuntu-latest"
             pre-command: |
               sudo apt-get update
-              sudo apt-get -y install socat gir1.2-gtk-4.0 clibcairo2-dev
+              sudo apt-get -y install socat libgirepository-1.0-dev libcairo2-dev gir1.2-gtk-4.0
             briefcase-run-prefix: "xvfb-run"
             briefcase-args: "--target ubuntu:24.04"
 
@@ -102,22 +102,22 @@ jobs:
           current_version=$(grep -E 'version = "[^"]*"' pyproject.toml | cut -d'"' -f2)
           api_version=$(grep -E 'VERSION = "[^"]*"' src/buyeuropean/api.py | cut -d'"' -f2)
           
-          # Set it as output and environment variable
-          echo "current_version=${current_version}" >> $GITHUB_ENV
-          echo "::set-output name=current_version::${current_version}"
+          # Set it as output using the new approach
+          echo "current_version=${current_version}" >> "$GITHUB_ENV"
+          echo "current_version=${current_version}" >> "$GITHUB_OUTPUT"
           
           # Get the last release version safely
           last_release=$(git tag --sort=-creatordate | head -n 1 | sed 's/v//' || echo "0.0.0")
           
-          echo "Current version: $current_version"
-          echo "API version: $api_version"
-          echo "Last release: $last_release"
+          echo "Current version: ${current_version}"
+          echo "API version: ${api_version}"
+          echo "Last release: ${last_release}"
           
           # Check if the current version is different from the last release
-          if [ "$current_version" != "$last_release" ] || [ "$api_version" != "$last_release" ]; then
-            echo "version_changed=true" >> $GITHUB_ENV
+          if [ "${current_version}" != "${last_release}" ] || [ "${api_version}" != "${last_release}" ]; then
+            echo "version_changed=true" >> "$GITHUB_ENV"
           else
-            echo "version_changed=false" >> $GITHUB_ENV
+            echo "version_changed=false" >> "$GITHUB_ENV"
           fi
 
       - name: Set release tag

@@ -4,10 +4,11 @@ import gi
 import threading
 from pathlib import Path
 import subprocess
-from gi.repository import Gtk, GLib, Adw
+from gi.repository import Gtk, GLib
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
+from gi.repository import Adw
 
 # Try to import GStreamer for better sound handling
 try:

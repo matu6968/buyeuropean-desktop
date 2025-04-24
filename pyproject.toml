@@ -90,13 +90,13 @@ system_requires = [
     # Needed to compile pycairo wheel
     "libcairo2-dev",
     # Needed to compile PyGObject wheel
-    "gir1.2-girepository-2.0-dev",
+    "libgirepository-2.0-dev",
 ]
 
 system_runtime_requires = [
     # Needed to provide GTK and its GI bindings
     "gir1.2-gtk-4.0",
-    "gir1.2-girepository-2.0",
+    "libgirepository-2.0-0",
     # Dependencies that GTK looks for at runtime
     "libcanberra-dev",
     # Needed to provide WebKit2 at runtime
