@@ -10,8 +10,8 @@ from pathlib import Path
 from PIL import Image
 
 VERSION = "1.1.0"
-API_ENDPOINT = "https://buy-e-ubackend-felixgraeber.replit.app/v2/analyze-product"
-FEEDBACK_ENDPOINT = "https://buy-e-ubackend-felixgraeber.replit.app/api/feedback/analysis"
+API_ENDPOINT = "https://electoral-shantee-felixgraeber-714b8722.koyeb.app/v2/analyze-product"
+FEEDBACK_ENDPOINT = "https://electoral-shantee-felixgraeber-714b8722.koyeb.app/api/feedback/analysis"
 
 
 class BuyEuropeanAPI:
