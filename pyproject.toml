@@ -37,7 +37,7 @@ Homepage = "https://buyeuropean.io"
 
 [project.optional-dependencies]
 qt6 = ["PyQt6>=6.0.0"]
-gtk4 = ["PyGObject>=3.40.0"]
+gtk4 = ["PyGObject>=3.54.5"]
 
 [project.scripts]
 buyeuropean = "buyeuropean.__main__:main"
@@ -81,7 +81,7 @@ requires = [
 
 [tool.briefcase.app.buyeuropean.linux]
 requires = [
-    "PyGObject>=3.40.0",
+    "PyGObject>=3.54.5",
     "PyQt6>=6.0.0",
 ]
 
