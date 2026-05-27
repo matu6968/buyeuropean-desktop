@@ -1,5 +1,10 @@
 # BuyEuropean Desktop
 
+> [!WARNING]
+> Project no longer maintained due to lack of project interest.
+>
+> Also it is missing features like text-only product scanning which the official mobile app supports.
+
 A unofficial desktop client for the [BuyEuropean](https://buyeuropean.io/) API to analyze product images and determine if they're from European companies.
 
 #### GTK4 frontend
